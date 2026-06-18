@@ -84,6 +84,15 @@ fn getFilesFromDir(
 // `zig build` calls this function once. It does not compile anything
 // directly — instead it describes a graph of build steps (compile, link,
 // install, run) that Zig then executes in dependency order.
+//
+// zClip is consumed as a library by zGameLib (the libs-first / link-the-
+// artifact model). This script produces two things downstream depends on:
+//   1. A Zig module named "zclip" (the public API in src/root.zig).
+//   2. A static-library artifact named "zclip" that bundles the compiled
+//      Zig glue plus the C/C++ translation units.
+// Downstream imports the module and `linkLibrary` the artifact. A standalone
+// `demo` (built from src/main.zig, importing the module like a consumer would)
+// is kept for `zig build run`.
 pub fn build(b: *std.Build) void {
     // Target triple (CPU/OS/ABI). Defaults to the host. Override on the
     // command line, e.g. `zig build -Dtarget=x86_64-windows`.
@@ -103,22 +112,22 @@ pub fn build(b: *std.Build) void {
     const cpp_sources = getFilesFromDir(b.graph.io, b.allocator, path_to_cpp, &.{cpp_suffix}) catch |err|
         std.debug.panic("Failed to scan {s}: {s}", .{ path_to_cpp, @errorName(err) });
 
-    // Build a Module that owns the root Zig file plus all C/C++ sources.
-    // In modern Zig (0.14+) C/C++ files and libc/libc++ linkage are
-    // attached to a Module, not directly to the executable.
-    const exe_mod = b.createModule(.{
-        .root_source_file = b.path("src/main.zig"),
+    // Public Zig API. `addModule` registers it under the name "zclip" so
+    // downstream `b.dependency("zclip", ...).module("zclip")` resolves it.
+    // The C/C++ translation units are compiled into this module, so the
+    // `extern` symbols in src/root.zig resolve at link time. libc is needed
+    // for `printf`, libc++ for `std::cout` and the C++ runtime.
+    const zclip_mod = b.addModule("zclip", .{
+        .root_source_file = b.path("src/root.zig"),
         .target = target,
         .optimize = optimize,
-        // Link libc for things like `printf`, and libc++ for `std::cout`
-        // and the rest of the C++ runtime.
         .link_libc = true,
         .link_libcpp = true,
     });
 
     // Hand the C sources to Zig's bundled Clang-based C frontend. No
     // external C compiler is required.
-    exe_mod.addCSourceFiles(.{
+    zclip_mod.addCSourceFiles(.{
         .files = c_sources,
         .flags = &c_flags,
     });
@@ -126,35 +135,48 @@ pub fn build(b: *std.Build) void {
     // Same for C++. Each C++ function called from Zig must be declared
     // `extern "C"` in its .cpp file, otherwise its symbol gets C++
     // name-mangled and Zig's `extern fn` won't find it at link time.
-    exe_mod.addCSourceFiles(.{
+    zclip_mod.addCSourceFiles(.{
         .files = cpp_sources,
         .flags = &cpp_flags,
     });
 
-    // The artifact this build produces: a binary called `demo`, built
-    // from the module above.
+    // Static-library artifact. Downstream `linkLibrary` on this pulls in the
+    // compiled Zig glue and the bundled C/C++ objects.
+    const zclip_lib = b.addLibrary(.{
+        .name = "zclip",
+        .linkage = .static,
+        .root_module = zclip_mod,
+    });
+    b.installArtifact(zclip_lib);
+
+    // --- `zig build run` ----------------------------------------------------
+    // A standalone demo that imports the module and links the artifact exactly
+    // as a downstream consumer would.
+    const demo_mod = b.createModule(.{
+        .root_source_file = b.path("src/main.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    demo_mod.addImport("zclip", zclip_mod);
+    demo_mod.linkLibrary(zclip_lib);
+
     const exe = b.addExecutable(.{
         .name = "demo",
-        .root_module = exe_mod,
+        .root_module = demo_mod,
     });
-
-    // Place the final binary under `zig-out/bin/` when the user runs
-    // `zig build` (the default install step).
     b.installArtifact(exe);
 
-    // Wire up `zig build run`: a step that depends on the install step
-    // (so the binary exists on disk first) and then executes it.
     const run_cmd = b.addRunArtifact(exe);
     run_cmd.step.dependOn(b.getInstallStep());
-
-    // Forward CLI args after `--` straight to the program, so
-    // `zig build run -- foo bar` passes ["foo", "bar"] to main().
     if (b.args) |args| {
         run_cmd.addArgs(args);
     }
-
-    // Expose the run command as a named top-level step. Shows up in
-    // `zig build --help` and is invoked with `zig build run`.
     const run_step = b.step("run", "Run the demo application");
     run_step.dependOn(&run_cmd.step);
+
+    // --- `zig build test` ---------------------------------------------------
+    // Analyze + link the public module (refAllDecls in src/root.zig).
+    const mod_tests = b.addTest(.{ .root_module = zclip_mod });
+    b.step("test", "Analyze + link the zclip module")
+        .dependOn(&b.addRunArtifact(mod_tests).step);
 }
