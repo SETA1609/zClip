@@ -68,7 +68,12 @@ fn getFilesFromDir(
     rel_dir: []const u8,
     extensions: []const []const u8,
 ) ![]const []const u8 {
-    var dir = try std.Io.Dir.cwd().openDir(io, scan_dir, .{ .iterate = true });
+    // A missing source dir is not an error — the lib may be pure Zig until the
+    // cgltf C backend is vendored. Treat it as "no sources" rather than panic.
+    var dir = std.Io.Dir.cwd().openDir(io, scan_dir, .{ .iterate = true }) catch |err| switch (err) {
+        error.FileNotFound => return &.{},
+        else => return err,
+    };
     defer dir.close(io);
     var walker = try dir.walk(allocator);
     defer walker.deinit();
@@ -97,7 +102,7 @@ fn getFilesFromDir(
 // artifact model). This script produces two things downstream depends on:
 //   1. A Zig module named "zclip" (the public API in src/root.zig).
 //   2. A static-library artifact named "zclip" that bundles the compiled
-//      Zig glue plus the C/C++ translation units.
+//      Zig glue plus any C translation units (the cgltf backend, once vendored).
 // Downstream imports the module and `linkLibrary` the artifact. A standalone
 // `demo` (built from src/main.zig, importing the module like a consumer would)
 // is kept for `zig build run`.
@@ -124,15 +129,14 @@ pub fn build(b: *std.Build) void {
 
     // Public Zig API. `addModule` registers it under the name "zclip" so
     // downstream `b.dependency("zclip", ...).module("zclip")` resolves it.
-    // The C/C++ translation units are compiled into this module, so the
-    // `extern` symbols in src/root.zig resolve at link time. libc is needed
-    // for `printf`, libc++ for `std::cout` and the C++ runtime.
+    // Any C translation units (the cgltf backend, once vendored) are compiled
+    // into this module, so their `extern` symbols resolve at link time. libc
+    // is linked for the C backend; cgltf is C, so no libc++.
     const zclip_mod = b.addModule("zclip", .{
         .root_source_file = b.path("src/root.zig"),
         .target = target,
         .optimize = optimize,
         .link_libc = true,
-        .link_libcpp = true,
     });
 
     // Hand the C sources to Zig's bundled Clang-based C frontend. No
