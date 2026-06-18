@@ -21,20 +21,22 @@ project.
 
 ## Scope / threat model
 
-zClip is a small **C/C++/Zig hybrid library** linked into a host binary. It is
-not network-facing. The realistic surface is the **cross-language FFI boundary**:
+zClip is the **animation library** linked into a host binary. It is not
+network-facing. The realistic surface is **asset parsing + the FFI boundary**:
 
-- C/C++ functions reached over the C ABI from Zig (`extern fn`) and vice versa.
-- Any data passed across that boundary as pointer + length — a length/pointer
-  mismatch is a memory-safety hazard, not a feature bug.
-- A C++ exception must never propagate across the `extern "C"` boundary into
-  Zig; bridge functions should be `noexcept` and catch before crossing.
+- **glTF parsing** (via cgltf) of potentially untrusted `.gltf`/`.glb` files —
+  the main attack surface: malformed/oversized inputs, out-of-bounds indices,
+  integer overflow in buffer/accessor offsets. Treat asset files as untrusted.
+- The **cgltf C backend** reached over the C ABI from Zig: a length/pointer
+  mismatch across that boundary is a memory-safety hazard, not a feature bug.
 
 ## Upstream dependencies
 
-zClip has **no external Zig dependencies** — the C/C++ translation units are
-compiled in-tree by Zig's bundled Clang frontend. Toolchain vulnerabilities
-belong to the [Zig project](https://github.com/ziglang/zig/security).
+zClip's only third-party code is **cgltf** (vendored, compiled in-tree by Zig's
+bundled Clang frontend). Parser vulnerabilities in cgltf itself should be
+reported to [cgltf upstream](https://github.com/jkuhlmann/cgltf); once fixed,
+zClip bumps its vendored copy. Toolchain issues belong to the
+[Zig project](https://github.com/ziglang/zig/security).
 
 ## Out of scope
 

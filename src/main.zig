@@ -6,8 +6,11 @@ const zclip = @import("zclip");
 // `init.io` is what filesystem and stdio calls thread through.
 pub fn main(init: std.process.Init) !void {
     const stdout = std.Io.File.stdout();
-    try stdout.writeStreamingAll(init.io, "🚀 Hello from Zig! \n");
-    zclip.greetC();
-    zclip.greetCpp();
-    try stdout.writeStreamingAll(init.io, "\n ✅ Success!\n");
+    try stdout.writeStreamingAll(init.io, "zClip — animation library (scaffold)\n");
+
+    // The two raw animation paths. Referenced so the module is analysed; both
+    // are structure-only for now (see PLAN.md).
+    _ = zclip.sprite;
+    _ = zclip.skeletal;
+    _ = zclip.gltf;
 }

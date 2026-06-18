@@ -1,26 +1,28 @@
-//! zClip — public Zig API.
+//! zClip — the raw **animation library** for zGameLib.
 //!
-//! This is the module downstream consumers import (registered as "zclip" in
-//! build.zig). The C/C++ translation units under src/c and src/cpp are compiled
-//! into this module's library artifact, so the `extern` symbols below resolve
-//! at link time. See build.zig for the libs-first / link-the-artifact model.
+//! Two independent paths over a common asset story, both raw-first: the
+//! framework (zGameLib) abstracts them into one unified animation API, but you
+//! can drive either directly.
+//!
+//!  1. **sprite** — 2D sprite-sheet *atlas* animation: a clip is an ordered set
+//!     of sub-rectangles ("frames") of a texture, played on a timeline.
+//!  2. **skeletal** — *skeletal/skinned* animation loaded from **glTF** via
+//!     `cgltf`: a joint hierarchy + sampled channels (TRS keyframes).
+//!
+//! Scaffold only — types/signatures are declared; bodies `@panic`. The cgltf C
+//! backend is not vendored yet. See ../PLAN.md.
 
 const std = @import("std");
 
-// C/C++ entry points, reached over the C ABI. The C++ side is declared
-// `extern "C"` in its .cpp so its symbol isn't name-mangled.
-extern fn greetFromC() c_int;
-extern fn greetFromCpp() void;
+/// glTF ingestion (cgltf binding). The skeletal path's loader; also usable on
+/// its own to pull meshes/materials a renderer needs.
+pub const gltf = @import("gltf.zig");
 
-/// Print the greeting from the C translation unit.
-pub fn greetC() void {
-    _ = greetFromC();
-}
+/// Path 1 — 2D sprite-sheet atlas animation.
+pub const sprite = @import("sprite.zig");
 
-/// Print the greeting from the C++ translation unit.
-pub fn greetCpp() void {
-    greetFromCpp();
-}
+/// Path 2 — skeletal/skinned animation (glTF-driven).
+pub const skeletal = @import("skeletal.zig");
 
 test {
     std.testing.refAllDecls(@This());
