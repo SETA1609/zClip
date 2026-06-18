@@ -1,7 +1,5 @@
 const std = @import("std");
-
-extern fn greetFromC() void;
-extern fn greetFromCpp() void;
+const zclip = @import("zclip");
 
 // Zig 0.16 changed `main`: instead of grabbing globals like `std.io.getStdOut()`,
 // the runtime hands you an `Init` struct that carries the I/O interface.
@@ -9,7 +7,7 @@ extern fn greetFromCpp() void;
 pub fn main(init: std.process.Init) !void {
     const stdout = std.Io.File.stdout();
     try stdout.writeStreamingAll(init.io, "🚀 Hello from Zig! \n");
-    greetFromC();
-    greetFromCpp();
+    zclip.greetC();
+    zclip.greetCpp();
     try stdout.writeStreamingAll(init.io, "\n ✅ Success!\n");
 }

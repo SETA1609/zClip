@@ -1,0 +1,26 @@
+.{
+    // Package identity. Zig 0.16+ uses an enum-literal name; see:
+    // https://ziglang.org/documentation/master/std/#std.zig.parseBuildZigZon
+    .name = .zclip,
+
+    // SemVer. Bumps with breaking changes to the public Zig API (root.zig).
+    .version = "0.0.0",
+
+    // Stable u64 fingerprint identifying this package across renames and
+    // forks. Generated once and kept constant.
+    .fingerprint = 0xf924c4083ac92525,
+
+    // Minimum Zig version that can build this package.
+    .minimum_zig_version = "0.16.0",
+
+    // No external Zig dependencies — the C/C++ translation units are
+    // compiled in-tree via Zig's bundled Clang frontend.
+    .dependencies = .{},
+
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+        "README.md",
+    },
+}
