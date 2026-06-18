@@ -4,9 +4,12 @@ The **animation library** of [zGameLib](../../README.md) — a raw, single-purpo
 lib (same tier as the platform/vulkan adapters) that the framework abstracts
 into a unified animation API.
 
-> **Status:** active. Sprite-atlas path is implemented and integrated into the
-> game's build. Skeletal (glTF/cgltf) path is planned. See [`PLAN.md`](PLAN.md)
-> for the full roadmap.
+> **Status:** scaffold. The foundation is in place — the `zclip` module +
+> static-lib artifact build and are wired into zGameLib (`zgame.zclip` raw +
+> `zgame.animation` abstraction) — but both playback paths are doc-only stubs:
+> types declared, bodies unimplemented, cgltf not yet vendored. Sprite-atlas is
+> the next path (v0.6), skeletal follows (v0.7–v0.8). See the per-version plan in
+> [`docs/ROADMAP.md`](docs/ROADMAP.md) and [`PLAN.md`](PLAN.md).
 
 ## Two paths
 
