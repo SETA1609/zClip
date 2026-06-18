@@ -44,8 +44,15 @@ fn containsSuffix(
     return false;
 }
 
-/// Recursively walks `dir_path` and returns the relative paths of every
-/// regular file whose name ends in one of the given `extensions`.
+/// Recursively walks `scan_dir` (an absolute path) and returns, for every
+/// regular file whose name ends in one of `extensions`, a path of the form
+/// `rel_dir/<entry>` — relative to the package root.
+///
+/// Two paths are needed because the build can run from a different cwd than
+/// this package: when zClip is consumed as a dependency, cwd is the parent's
+/// build root. So we *open* the directory via its absolute path (`scan_dir =
+/// b.pathFromRoot(rel_dir)`) but return *package-relative* paths, which is
+/// what `addCSourceFiles` resolves against its `root` (the package root).
 ///
 /// `io` is Zig's I/O interface (introduced in 0.16's "color-blind async"
 /// refactor). Every filesystem call now takes it explicitly. In a build
@@ -57,10 +64,11 @@ fn containsSuffix(
 fn getFilesFromDir(
     io: std.Io,
     allocator: std.mem.Allocator,
-    dir_path: []const u8,
+    scan_dir: []const u8,
+    rel_dir: []const u8,
     extensions: []const []const u8,
 ) ![]const []const u8 {
-    var dir = try std.Io.Dir.cwd().openDir(io, dir_path, .{ .iterate = true });
+    var dir = try std.Io.Dir.cwd().openDir(io, scan_dir, .{ .iterate = true });
     defer dir.close(io);
     var walker = try dir.walk(allocator);
     defer walker.deinit();
@@ -72,8 +80,8 @@ fn getFilesFromDir(
     while (try walker.next(io)) |entry| {
         if (entry.kind == .file and containsSuffix(entry.path, extensions)) {
             // `entry.path` is relative to the walked dir, so prepend
-            // `dir_path` to get a path the compiler can resolve from cwd.
-            const full_path = try std.fs.path.join(allocator, &.{ dir_path, entry.path });
+            // `rel_dir` to get a path relative to the package root.
+            const full_path = try std.fs.path.join(allocator, &.{ rel_dir, entry.path });
             try list.append(allocator, full_path);
         }
     }
@@ -107,9 +115,11 @@ pub fn build(b: *std.Build) void {
     // (or any subdirectory of those) and it gets picked up automatically
     // on the next `zig build`. Failure to read the directory is fatal —
     // there is no useful recovery in a build script, so we panic.
-    const c_sources = getFilesFromDir(b.graph.io, b.allocator, path_to_c, &.{c_suffix}) catch |err|
+    // Open dirs by absolute path (`pathFromRoot`) so discovery works even when
+    // this package builds as a dependency (cwd is then the parent's build root).
+    const c_sources = getFilesFromDir(b.graph.io, b.allocator, b.pathFromRoot(path_to_c), path_to_c, &.{c_suffix}) catch |err|
         std.debug.panic("Failed to scan {s}: {s}", .{ path_to_c, @errorName(err) });
-    const cpp_sources = getFilesFromDir(b.graph.io, b.allocator, path_to_cpp, &.{cpp_suffix}) catch |err|
+    const cpp_sources = getFilesFromDir(b.graph.io, b.allocator, b.pathFromRoot(path_to_cpp), path_to_cpp, &.{cpp_suffix}) catch |err|
         std.debug.panic("Failed to scan {s}: {s}", .{ path_to_cpp, @errorName(err) });
 
     // Public Zig API. `addModule` registers it under the name "zclip" so

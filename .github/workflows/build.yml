@@ -1,15 +1,28 @@
-name: build
+name: CI
 
+# Runs on every push (any branch) and every PR. The `build` job is the merge
+# gate: make it a required status check in branch protection for `main`. The
+# actual checks live in scripts/ci.sh (single source of truth, runnable locally).
 on:
   push:
-    branches: [main]
+    branches: ['**']
   pull_request:
-    branches: [main]
+
+# Least privilege: this workflow only checks out + builds; no writes needed.
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash # so scripts/ci.sh runs on the Windows runner too
 
 jobs:
   build:
-    name: ${{ matrix.os }}
+    name: build · ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+    # macOS is contributor-led (the author has no mac hardware): visible but
+    # non-blocking, so a mac-only break never gates a merge.
+    continue-on-error: ${{ matrix.os == 'macos-latest' }}
     strategy:
       fail-fast: false
       matrix:
@@ -21,12 +34,11 @@ jobs:
         uses: mlugg/setup-zig@v2
         with:
           version: 0.16.0
+          use-cache: true
 
-      - name: zig version
-        run: zig version
+      - run: zig version
 
-      - name: Build
-        run: zig build
-
-      - name: Run
-        run: zig build run
+      # fmt + build + run demo + module test. `.gitattributes` (eol=lf) keeps
+      # the Windows checkout LF so the fmt gate passes there too.
+      - name: CI checks
+        run: bash scripts/ci.sh
