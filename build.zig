@@ -188,9 +188,43 @@ pub fn build(b: *std.Build) void {
     const run_step = b.step("run", "Run the demo application");
     run_step.dependOn(&run_cmd.step);
 
-    // --- `zig build test` ---------------------------------------------------
-    // Analyze + link the public module (refAllDecls in src/root.zig).
+    // --- Tests --------------------------------------------------------------
+
+    // `zig build test` — analyze + link the public module (refAllDecls).
     const mod_tests = b.addTest(.{ .root_module = zclip_mod });
-    b.step("test", "Analyze + link the zclip module")
+    b.step("test", "Analyze + link the zclip module (refAllDecls)")
         .dependOn(&b.addRunArtifact(mod_tests).step);
+
+    // `zig build test-tdd` — the TDD suite (red→green gated behavioural tests).
+    const tdd_sprite_mod = b.createModule(.{
+        .root_source_file = b.path("src/tests/tdd/sprite_test.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    tdd_sprite_mod.addImport("zclip", zclip_mod);
+
+    const tdd_skeletal_mod = b.createModule(.{
+        .root_source_file = b.path("src/tests/tdd/skeletal_test.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    tdd_skeletal_mod.addImport("zclip", zclip_mod);
+
+    const tdd_sprite_tests = b.addTest(.{ .root_module = tdd_sprite_mod });
+    const tdd_skeletal_tests = b.addTest(.{ .root_module = tdd_skeletal_mod });
+
+    const tdd_step = b.step("test-tdd", "Run the TDD behavioural suite (sprite + skeletal)");
+    tdd_step.dependOn(&b.addRunArtifact(tdd_sprite_tests).step);
+    tdd_step.dependOn(&b.addRunArtifact(tdd_skeletal_tests).step);
+
+    // `zig build test-contract` — enum discriminants / struct layout / defaults.
+    const contract_mod = b.createModule(.{
+        .root_source_file = b.path("src/tests/contract_test.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    contract_mod.addImport("zclip", zclip_mod);
+    const contract_tests = b.addTest(.{ .root_module = contract_mod });
+    b.step("test-contract", "Run contract tests (enum values / struct defaults / layout)")
+        .dependOn(&b.addRunArtifact(contract_tests).step);
 }

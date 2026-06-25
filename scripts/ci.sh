@@ -13,4 +13,8 @@ echo "== zig build run (demo) =="
 zig build run || exit 1
 echo "== zig build test (module) =="
 zig build test || exit 1
+echo "== zig build test-tdd (behavioural) =="
+zig build test-tdd || exit 1
+echo "== zig build test-contract (enum values / layout) =="
+zig build test-contract || exit 1
 echo "ok: all green"
