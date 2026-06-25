@@ -101,6 +101,7 @@ swappable:
 
 ## See also
 
+- The two animation paths: [`sprite-animation.md`](sprite-animation.md) · [`skeletal-animation.md`](skeletal-animation.md)
 - The framework abstraction: [`../../../shared/animation.zig`](../../../shared/animation.zig) (`zgame.animation`)
 - Sibling libs: [zig-cpp-platform-stack-adapter](https://github.com/SETA1609/zig-cpp-platform-stack-adapter) · [zig-cpp-vulkan-stack-adapter](https://github.com/SETA1609/zig-cpp-vulkan-stack-adapter)
 - Path to 1.0: [`completion-plan.md`](completion-plan.md) · Test apps: [`validation-apps.md`](validation-apps.md) · Why it exists: [`vision.md`](vision.md) / [`mission.md`](mission.md) · Deps: [`dependencies.md`](dependencies.md)
