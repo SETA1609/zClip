@@ -1,3 +1,9 @@
+//! Sprite-atlas animation for zClip — 2D frame-by-frame playback.
+//!
+//! Provides `Atlas` (a collection of frame rectangles parsed from a sprite
+//! sheet or built programmatically from a grid) and `Clip` (a playable
+//! sequence over an atlas's frames, driven by a phase value in `[0, 1]`).
+
 const std = @import("std");
 
 /// How a clip advances through its frames. Used by the framework's `Animator`;

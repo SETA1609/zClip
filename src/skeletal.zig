@@ -1,3 +1,9 @@
+//! Skeletal animation for zClip — skinned/animated data types loaded from glTF.
+//!
+//! Defines the core types for skeletal playback: `Interpolation` modes,
+//! `ChannelTarget` selectors, `Sampler`/`Channel`/`Clip` for a single animation,
+//! and `Skeleton`/`JointPalette` for the rig. Currently a stub — all methods panic.
+
 pub const Interpolation = enum(u2) {
     step,
     linear,

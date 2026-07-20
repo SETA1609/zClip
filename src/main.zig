@@ -1,3 +1,9 @@
+//! Standalone demo entry point for zClip.
+//!
+//! Imports the `zclip` module just as a downstream consumer would, verifying
+//! that the module links and the public symbols resolve. Currently prints a
+//! version banner — the actual demo is pending v0.6+ implementation.
+
 const std = @import("std");
 const zclip = @import("zclip");
 

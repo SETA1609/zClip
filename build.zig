@@ -1,12 +1,28 @@
-// This script is the entire build system for the project. Running `zig build`
-// invokes the `build` function at the bottom; everything above it is
-// configuration and helpers. If you only know CMake/Make: `build.zig` is
-// played as the role of `CMakeLists.txt`, but written in plain Zig instead
-// of a custom DSL.
-//
-// To customize the build, you usually only need to touch the constants
-// directly below: where the C/C++ sources live and which compiler flags
-// to use.
+//! Build system for the **zClip** animation library.
+//!
+//! Running `zig build` invokes the `build` function at the bottom; everything
+//! above it is configuration and helpers. If you only know CMake/Make:
+//! `build.zig` plays the role of `CMakeLists.txt`, written in plain Zig
+//! instead of a custom DSL.
+//!
+//! ## Build steps
+//!
+//! | Command | Target |
+//! |---------|--------|
+//! | `zig build` | Build the static-library artifact |
+//! | `zig build test` | Analyze + link the zclip module (refAllDecls) |
+//! | `zig build test-tdd` | Run the TDD behavioural suite (sprite + skeletal) |
+//! | `zig build test-contract` | Run contract tests (enum values / struct defaults) |
+//! | `zig build run` | Build + run the scaffold demo |
+//!
+//! ## Flags
+//!
+//! - `-Dtarget=<triple>` — cross-compile target (default: host)
+//! - `-Doptimize=<mode>` — Debug / ReleaseFast / ReleaseSafe / ReleaseSmall
+//!
+//! To customize the build, you usually only need to touch the constants
+//! directly below: where the C/C++ sources live and which compiler flags
+//! to use.
 
 const std = @import("std");
 
