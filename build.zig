@@ -1,12 +1,29 @@
-// This script is the entire build system for the project. Running `zig build`
-// invokes the `build` function at the bottom; everything above it is
-// configuration and helpers. If you only know CMake/Make: `build.zig` is
-// played as the role of `CMakeLists.txt`, but written in plain Zig instead
-// of a custom DSL.
-//
-// To customize the build, you usually only need to touch the constants
-// directly below: where the C/C++ sources live and which compiler flags
-// to use.
+//! Build system for the **zClip** animation library.
+//!
+//! Running `zig build` invokes the `build` function at the bottom; everything
+//! above it is configuration and helpers. If you only know CMake/Make:
+//! `build.zig` plays the role of `CMakeLists.txt`, written in plain Zig
+//! instead of a custom DSL.
+//!
+//! ## Build steps
+//!
+//! | Command | Target |
+//! |---------|--------|
+//! | `zig build` | Build the static-library artifact |
+//! | `zig build test` | Analyze + link the zclip module (refAllDecls) |
+//! | `zig build test-tdd` | Run the TDD behavioural suite (sprite + skeletal) |
+//! | `zig build test-contract` | Run contract tests (enum values / struct defaults) |
+//! | `zig build run` | Build + run the scaffold demo |
+//!
+//! ## Flags
+//!
+//! - `-Dtarget=<triple>` — cross-compile target (default: host)
+//! - `-Doptimize=<mode>` — Debug / ReleaseFast / ReleaseSafe / ReleaseSmall
+//! - `-Dbackend=<name>` — glTF data backend: `none` (default, pure-Zig stubs), `cgltf` (vendored C loader, once implemented)
+//!
+//! To customize the build, you usually only need to touch the constants
+//! directly below: where the C/C++ sources live and which compiler flags
+//! to use.
 
 const std = @import("std");
 
@@ -32,6 +49,20 @@ const c_flags = [_][]const u8{"-std=c23"} ++ base_flags;
 // Bump this when Zig's bundled Clang gains better C++26 support.
 const cpp_flags = [_][]const u8{"-std=c++23"} ++ base_flags;
 
+// --- Backend selection ----------------------------------------------------
+/// glTF data ingestion backend. Controls whether the cgltf C library is
+/// compiled in (for skeletal animation data) or stubs are used instead.
+pub const Backend = enum(u1) {
+    none,
+    cgltf,
+    pub const all = [_]Backend{ .none, .cgltf };
+};
+
+fn parseBackend(opt: []const u8) Backend {
+    const b = std.meta.stringToEnum(Backend, opt) orelse
+        std.debug.panic("Unknown backend '{s}'. Valid: none, cgltf", .{opt});
+    return b;
+}
 // --- Source discovery -----------------------------------------------------
 
 /// Returns true if `file` ends with any of the given `extensions`.
@@ -44,8 +75,15 @@ fn containsSuffix(
     return false;
 }
 
-/// Recursively walks `dir_path` and returns the relative paths of every
-/// regular file whose name ends in one of the given `extensions`.
+/// Recursively walks `scan_dir` (an absolute path) and returns, for every
+/// regular file whose name ends in one of `extensions`, a path of the form
+/// `rel_dir/<entry>` — relative to the package root.
+///
+/// Two paths are needed because the build can run from a different cwd than
+/// this package: when zClip is consumed as a dependency, cwd is the parent's
+/// build root. So we *open* the directory via its absolute path (`scan_dir =
+/// b.pathFromRoot(rel_dir)`) but return *package-relative* paths, which is
+/// what `addCSourceFiles` resolves against its `root` (the package root).
 ///
 /// `io` is Zig's I/O interface (introduced in 0.16's "color-blind async"
 /// refactor). Every filesystem call now takes it explicitly. In a build
@@ -57,10 +95,16 @@ fn containsSuffix(
 fn getFilesFromDir(
     io: std.Io,
     allocator: std.mem.Allocator,
-    dir_path: []const u8,
+    scan_dir: []const u8,
+    rel_dir: []const u8,
     extensions: []const []const u8,
 ) ![]const []const u8 {
-    var dir = try std.Io.Dir.cwd().openDir(io, dir_path, .{ .iterate = true });
+    // A missing source dir is not an error — the lib may be pure Zig until the
+    // cgltf C backend is vendored. Treat it as "no sources" rather than panic.
+    var dir = std.Io.Dir.cwd().openDir(io, scan_dir, .{ .iterate = true }) catch |err| switch (err) {
+        error.FileNotFound => return &.{},
+        else => return err,
+    };
     defer dir.close(io);
     var walker = try dir.walk(allocator);
     defer walker.deinit();
@@ -72,8 +116,8 @@ fn getFilesFromDir(
     while (try walker.next(io)) |entry| {
         if (entry.kind == .file and containsSuffix(entry.path, extensions)) {
             // `entry.path` is relative to the walked dir, so prepend
-            // `dir_path` to get a path the compiler can resolve from cwd.
-            const full_path = try std.fs.path.join(allocator, &.{ dir_path, entry.path });
+            // `rel_dir` to get a path relative to the package root.
+            const full_path = try std.fs.path.join(allocator, &.{ rel_dir, entry.path });
             try list.append(allocator, full_path);
         }
     }
@@ -84,6 +128,15 @@ fn getFilesFromDir(
 // `zig build` calls this function once. It does not compile anything
 // directly — instead it describes a graph of build steps (compile, link,
 // install, run) that Zig then executes in dependency order.
+//
+// zClip is consumed as a library by zGameLib (the libs-first / link-the-
+// artifact model). This script produces two things downstream depends on:
+//   1. A Zig module named "zclip" (the public API in src/root.zig).
+//   2. A static-library artifact named "zclip" that bundles the compiled
+//      Zig glue plus any C translation units (the cgltf backend, once vendored).
+// Downstream imports the module and `linkLibrary` the artifact. A standalone
+// `demo` (built from src/main.zig, importing the module like a consumer would)
+// is kept for `zig build run`.
 pub fn build(b: *std.Build) void {
     // Target triple (CPU/OS/ABI). Defaults to the host. Override on the
     // command line, e.g. `zig build -Dtarget=x86_64-windows`.
@@ -93,32 +146,46 @@ pub fn build(b: *std.Build) void {
     // `-Doptimize=ReleaseFast | ReleaseSafe | ReleaseSmall`.
     const optimize = b.standardOptimizeOption(.{});
 
+    // Backend selection — glTF data ingestion strategy.
+    const backend_opt = b.option([]const u8, "backend",
+        "glTF data backend: none (pure-Zig stubs), cgltf (vendored C loader, once implemented)") orelse "none";
+    const backend = parseBackend(backend_opt);
+
+    // Build config options for source code to query.
+    const build_config = b.addOptions();
+    inline for (@typeInfo(Backend).@"enum".fields) |field| {
+        const p: Backend = @enumFromInt(field.value);
+        build_config.addOption(bool, b.fmt("backend_{s}", .{field.name}), p == backend);
+    }
+
     // Discover C and C++ sources at build-script run time instead of
     // listing them by hand. Drop a new file into `src/c/` or `src/cpp/`
     // (or any subdirectory of those) and it gets picked up automatically
     // on the next `zig build`. Failure to read the directory is fatal —
     // there is no useful recovery in a build script, so we panic.
-    const c_sources = getFilesFromDir(b.graph.io, b.allocator, path_to_c, &.{c_suffix}) catch |err|
+    // Open dirs by absolute path (`pathFromRoot`) so discovery works even when
+    // this package builds as a dependency (cwd is then the parent's build root).
+    const c_sources = getFilesFromDir(b.graph.io, b.allocator, b.pathFromRoot(path_to_c), path_to_c, &.{c_suffix}) catch |err|
         std.debug.panic("Failed to scan {s}: {s}", .{ path_to_c, @errorName(err) });
-    const cpp_sources = getFilesFromDir(b.graph.io, b.allocator, path_to_cpp, &.{cpp_suffix}) catch |err|
+    const cpp_sources = getFilesFromDir(b.graph.io, b.allocator, b.pathFromRoot(path_to_cpp), path_to_cpp, &.{cpp_suffix}) catch |err|
         std.debug.panic("Failed to scan {s}: {s}", .{ path_to_cpp, @errorName(err) });
 
-    // Build a Module that owns the root Zig file plus all C/C++ sources.
-    // In modern Zig (0.14+) C/C++ files and libc/libc++ linkage are
-    // attached to a Module, not directly to the executable.
-    const exe_mod = b.createModule(.{
-        .root_source_file = b.path("src/main.zig"),
+    // Public Zig API. `addModule` registers it under the name "zclip" so
+    // downstream `b.dependency("zclip", ...).module("zclip")` resolves it.
+    // Any C translation units (the cgltf backend, once vendored) are compiled
+    // into this module, so their `extern` symbols resolve at link time. libc
+    // is linked for the C backend; cgltf is C, so no libc++.
+    const zclip_mod = b.addModule("zclip", .{
+        .root_source_file = b.path("src/root.zig"),
         .target = target,
         .optimize = optimize,
-        // Link libc for things like `printf`, and libc++ for `std::cout`
-        // and the rest of the C++ runtime.
         .link_libc = true,
-        .link_libcpp = true,
     });
+    zclip_mod.addOptions("build_config", build_config);
 
     // Hand the C sources to Zig's bundled Clang-based C frontend. No
     // external C compiler is required.
-    exe_mod.addCSourceFiles(.{
+    zclip_mod.addCSourceFiles(.{
         .files = c_sources,
         .flags = &c_flags,
     });
@@ -126,35 +193,82 @@ pub fn build(b: *std.Build) void {
     // Same for C++. Each C++ function called from Zig must be declared
     // `extern "C"` in its .cpp file, otherwise its symbol gets C++
     // name-mangled and Zig's `extern fn` won't find it at link time.
-    exe_mod.addCSourceFiles(.{
+    zclip_mod.addCSourceFiles(.{
         .files = cpp_sources,
         .flags = &cpp_flags,
     });
 
-    // The artifact this build produces: a binary called `demo`, built
-    // from the module above.
+    // Static-library artifact. Downstream `linkLibrary` on this pulls in the
+    // compiled Zig glue and the bundled C/C++ objects.
+    const zclip_lib = b.addLibrary(.{
+        .name = "zclip",
+        .linkage = .static,
+        .root_module = zclip_mod,
+    });
+    b.installArtifact(zclip_lib);
+
+    // --- `zig build run` ----------------------------------------------------
+    // A standalone demo that imports the module and links the artifact exactly
+    // as a downstream consumer would.
+    const demo_mod = b.createModule(.{
+        .root_source_file = b.path("src/main.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    demo_mod.addImport("zclip", zclip_mod);
+    demo_mod.linkLibrary(zclip_lib);
+
     const exe = b.addExecutable(.{
         .name = "demo",
-        .root_module = exe_mod,
+        .root_module = demo_mod,
     });
-
-    // Place the final binary under `zig-out/bin/` when the user runs
-    // `zig build` (the default install step).
     b.installArtifact(exe);
 
-    // Wire up `zig build run`: a step that depends on the install step
-    // (so the binary exists on disk first) and then executes it.
     const run_cmd = b.addRunArtifact(exe);
     run_cmd.step.dependOn(b.getInstallStep());
-
-    // Forward CLI args after `--` straight to the program, so
-    // `zig build run -- foo bar` passes ["foo", "bar"] to main().
     if (b.args) |args| {
         run_cmd.addArgs(args);
     }
-
-    // Expose the run command as a named top-level step. Shows up in
-    // `zig build --help` and is invoked with `zig build run`.
     const run_step = b.step("run", "Run the demo application");
     run_step.dependOn(&run_cmd.step);
+
+    // --- Tests --------------------------------------------------------------
+
+    // `zig build test` — analyze + link the public module (refAllDecls).
+    const mod_tests = b.addTest(.{ .root_module = zclip_mod });
+    b.step("test", "Analyze + link the zclip module (refAllDecls)")
+        .dependOn(&b.addRunArtifact(mod_tests).step);
+
+    // `zig build test-tdd` — the TDD suite (red→green gated behavioural tests).
+    const tdd_sprite_mod = b.createModule(.{
+        .root_source_file = b.path("src/tests/tdd/sprite_test.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    tdd_sprite_mod.addImport("zclip", zclip_mod);
+
+    const tdd_skeletal_mod = b.createModule(.{
+        .root_source_file = b.path("src/tests/tdd/skeletal_test.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    tdd_skeletal_mod.addImport("zclip", zclip_mod);
+
+    const tdd_sprite_tests = b.addTest(.{ .root_module = tdd_sprite_mod });
+    const tdd_skeletal_tests = b.addTest(.{ .root_module = tdd_skeletal_mod });
+
+    const tdd_step = b.step("test-tdd", "Run the TDD behavioural suite (sprite + skeletal)");
+    tdd_step.dependOn(&b.addRunArtifact(tdd_sprite_tests).step);
+    tdd_step.dependOn(&b.addRunArtifact(tdd_skeletal_tests).step);
+
+    // `zig build test-contract` — enum discriminants / struct layout / defaults.
+    const contract_mod = b.createModule(.{
+        .root_source_file = b.path("src/tests/contract_test.zig"),
+        .target = target,
+        .optimize = optimize,
+    });
+    contract_mod.addImport("zclip", zclip_mod);
+    const contract_tests = b.addTest(.{ .root_module = contract_mod });
+    b.step("test-contract", "Run contract tests (enum values / struct defaults / layout)")
+        .dependOn(&b.addRunArtifact(contract_tests).step);
 }
