@@ -19,6 +19,7 @@
 //!
 //! - `-Dtarget=<triple>` — cross-compile target (default: host)
 //! - `-Doptimize=<mode>` — Debug / ReleaseFast / ReleaseSafe / ReleaseSmall
+//! - `-Dbackend=<name>` — glTF data backend: `none` (default, pure-Zig stubs), `cgltf` (vendored C loader, once implemented)
 //!
 //! To customize the build, you usually only need to touch the constants
 //! directly below: where the C/C++ sources live and which compiler flags
@@ -48,6 +49,20 @@ const c_flags = [_][]const u8{"-std=c23"} ++ base_flags;
 // Bump this when Zig's bundled Clang gains better C++26 support.
 const cpp_flags = [_][]const u8{"-std=c++23"} ++ base_flags;
 
+// --- Backend selection ----------------------------------------------------
+/// glTF data ingestion backend. Controls whether the cgltf C library is
+/// compiled in (for skeletal animation data) or stubs are used instead.
+pub const Backend = enum(u1) {
+    none,
+    cgltf,
+    pub const all = [_]Backend{ .none, .cgltf };
+};
+
+fn parseBackend(opt: []const u8) Backend {
+    const b = std.meta.stringToEnum(Backend, opt) orelse
+        std.debug.panic("Unknown backend '{s}'. Valid: none, cgltf", .{opt});
+    return b;
+}
 // --- Source discovery -----------------------------------------------------
 
 /// Returns true if `file` ends with any of the given `extensions`.
@@ -131,6 +146,18 @@ pub fn build(b: *std.Build) void {
     // `-Doptimize=ReleaseFast | ReleaseSafe | ReleaseSmall`.
     const optimize = b.standardOptimizeOption(.{});
 
+    // Backend selection — glTF data ingestion strategy.
+    const backend_opt = b.option([]const u8, "backend",
+        "glTF data backend: none (pure-Zig stubs), cgltf (vendored C loader, once implemented)") orelse "none";
+    const backend = parseBackend(backend_opt);
+
+    // Build config options for source code to query.
+    const build_config = b.addOptions();
+    inline for (@typeInfo(Backend).@"enum".fields) |field| {
+        const p: Backend = @enumFromInt(field.value);
+        build_config.addOption(bool, b.fmt("backend_{s}", .{field.name}), p == backend);
+    }
+
     // Discover C and C++ sources at build-script run time instead of
     // listing them by hand. Drop a new file into `src/c/` or `src/cpp/`
     // (or any subdirectory of those) and it gets picked up automatically
@@ -154,6 +181,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
         .link_libc = true,
     });
+    zclip_mod.addOptions("build_config", build_config);
 
     // Hand the C sources to Zig's bundled Clang-based C frontend. No
     // external C compiler is required.
