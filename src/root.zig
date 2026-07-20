@@ -1,3 +1,12 @@
+//! zClip — animation library for zGameLib.
+//!
+//! Provides three sub-modules:
+//! - `gltf` — glTF document loading (skeletal animation input)
+//! - `sprite` — 2D sprite-atlas frame-by-frame animation
+//! - `skeletal` — skinned/skeletal animation data types
+//!
+//! Re-exports key types from each sub-module at the top level for convenience.
+
 const std = @import("std");
 
 pub const gltf = @import("gltf.zig");

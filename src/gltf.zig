@@ -1,3 +1,10 @@
+//! glTF document loading for zClip's skeletal animation path.
+//!
+//! Wraps [cgltf](https://github.com/jkuhlmann/cgltf) (once vendored) to load
+//! glTF 2.0 files from disk or memory. Currently a stub — all functions panic.
+//!
+//! The `Document` owns the loaded data; call `free` to release it.
+
 const std = @import("std");
 
 pub const Document = struct {

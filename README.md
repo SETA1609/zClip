@@ -29,12 +29,42 @@ wired into zGameLib under the libs-first / link-the-artifact model. Through the
 framework you reach the raw lib as `zgame.zclip` and the abstraction as
 `zgame.animation`.
 
-## Build
+## Build system
+
+Unlike the sibling stack-adapter libraries (which use a three-file DAG under
+`build/`), zClip keeps a **single flat `build.zig`** — the library has fewer
+build concerns (no external Zig dependencies, no optional shaderc/VMA), so a
+multi-file split would add ceremony without benefit.
+
+The `build.zig` structure:
+
+| Section | What it does |
+|---------|-------------|
+| **Configuration constants** | File extensions (`c_suffix`, `cpp_suffix`), base directories (`path_to_c`, `path_to_cpp`), and compiler flags (`c_flags`, `cpp_flags`) |
+| **Source discovery** | `getFilesFromDir()` — recursively walks a directory and returns all `.c`/`.cpp` files relative to the package root, so adding a new source file requires no build-script edits |
+| **Module creation** | `b.addModule("zclip", ...)` — registers the public Zig API under the name a downstream `b.dependency("zclip", ...).module("zclip")` resolves |
+| **Static library** | `b.addLibrary(.{ .name = "zclip", .linkage = .static })` — produces `zig-out/lib/libzclip.a`; downstream calls `linkLibrary` to pull in the Zig glue + any C/C++ objects |
+| **Demo executable** | `demo` — a standalone binary (`src/main.zig`) that imports the module and links the artifact exactly as a consumer would |
+| **Test targets** | `test` (refAllDecls), `test-tdd` (sprite + skeletal behavioural suite), `test-contract` (enum/struct layout) |
+
+### Build steps
+
+| Command | What it runs |
+|---------|-------------|
+| `zig build` | Build the static-library artifact (`zig-out/lib/libzclip.a`) |
+| `zig build test` | Analyze + link the zclip module (refAllDecls) |
+| `zig build test-tdd` | Run the TDD behavioural suite (sprite + skeletal) |
+| `zig build test-contract` | Run contract tests (enum values / struct defaults / layout) |
+| `zig build run` | Build + run the scaffold demo |
+
+### Flags
+
+- `-Dtarget=<triple>` — cross-compile target (default: host)
+- `-Doptimize=<mode>` — Debug / ReleaseFast / ReleaseSafe / ReleaseSmall
+
+### CI
 
 ```bash
-zig build          # build the static-library artifact
-zig build run      # build + run the scaffold demo
-zig build test     # analyze + link the zclip module
 ./scripts/ci.sh    # the full local CI gate (fmt + build + run + test)
 ```
 
