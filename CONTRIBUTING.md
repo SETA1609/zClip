@@ -53,7 +53,7 @@ the Zig side.
 - **Zig 0.16+** (the build uses post-0.16 APIs).
 - `zig build` — build the artifact; `zig build run` — build + run the demo;
   `zig build test` — analyze + link the `zclip` module.
-- **`./scripts/ci.sh`** runs the exact CI gate locally (fmt + build + run +
+- **`./scripts/ci/ci.sh`** runs the exact CI gate locally (fmt + build + run +
   test) — the workflow just installs Zig and calls this same script.
 - **Reproducible container:** `docker build -t zclip .` then
   `docker run --rm zclip` runs that gate in a clean image.

@@ -25,4 +25,4 @@ RUN set -eux; \
 WORKDIR /work
 COPY . .
 
-CMD ["bash", "scripts/ci.sh"]
+CMD ["bash", "scripts/ci/ci.sh"]

@@ -65,7 +65,7 @@ The `build.zig` structure:
 ### CI
 
 ```bash
-./scripts/ci.sh    # the full local CI gate (fmt + build + run + test)
+./scripts/ci/ci.sh    # the full local CI gate (fmt + build + run + test)
 ```
 
 Requires **Zig 0.16+**. The cgltf C backend (once vendored) is compiled in-tree
