@@ -5,7 +5,7 @@ name: CI
 # actual checks live in scripts/ci.sh (single source of truth, runnable locally).
 on:
   push:
-    branches: ['**']
+    branches: [main, dev]
   pull_request:
 
 # Least privilege: this workflow only checks out + builds; no writes needed.
