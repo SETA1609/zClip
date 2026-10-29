@@ -1,0 +1,20 @@
+# zClip C/C++ formatting — matches the sibling adapter libs' .clang-format.
+
+BasedOnStyle: Google
+Language: Cpp
+Standard: Latest
+ColumnLimit: 100
+IndentWidth: 2
+TabWidth: 2
+UseTab: Never
+ContinuationIndentWidth: 4
+PointerAlignment: Left
+NamespaceIndentation: None
+AllowShortFunctionsOnASingleLine: Empty
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+BreakBeforeBraces: Attach
+Cpp11BracedListStyle: true
+FixNamespaceComments: true
+DerivePointerAlignment: false
+SortIncludes: CaseSensitive

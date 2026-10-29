@@ -1,15 +1,17 @@
+//! Standalone demo entry point for zClip.
+//!
+//! Imports the `zclip` module just as a downstream consumer would, verifying
+//! that the module links and the public symbols resolve. Currently prints a
+//! version banner — the actual demo is pending v0.6+ implementation.
+
 const std = @import("std");
+const zclip = @import("zclip");
 
-extern fn greetFromC() void;
-extern fn greetFromCpp() void;
-
-// Zig 0.16 changed `main`: instead of grabbing globals like `std.io.getStdOut()`,
-// the runtime hands you an `Init` struct that carries the I/O interface.
-// `init.io` is what filesystem and stdio calls thread through.
 pub fn main(init: std.process.Init) !void {
     const stdout = std.Io.File.stdout();
-    try stdout.writeStreamingAll(init.io, "🚀 Hello from Zig! \n");
-    greetFromC();
-    greetFromCpp();
-    try stdout.writeStreamingAll(init.io, "\n ✅ Success!\n");
+    try stdout.writeStreamingAll(init.io, "zClip — animation library v0.6.0\n");
+
+    _ = zclip.sprite;
+    _ = zclip.skeletal;
+    _ = zclip.gltf;
 }
