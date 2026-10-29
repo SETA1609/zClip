@@ -55,6 +55,8 @@ the Zig side.
   `zig build test` — analyze + link the `zclip` module.
 - **`./scripts/ci.sh`** runs the exact CI gate locally (fmt + build + run +
   test) — the workflow just installs Zig and calls this same script.
+- **Container with logs:** `./scripts/container.sh ci` and `./scripts/container.sh tdd` run in the pinned 0.17.0 image, with timestamped logs in `cache/logs/`. Needs uv and docker or podman. Details: [tools/devops/README.md](tools/devops/README.md).
+- **Issues and changelog:** work is tracked in [issues.md](issues.md); each PR adds an entry for its issue to `CHANGELOG.md` and updates its `Last updated` timestamp.
 - **Reproducible container:** `docker build -t zclip .` then
   `docker run --rm zclip` runs that gate in a clean image.
 
