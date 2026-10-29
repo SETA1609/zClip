@@ -7,7 +7,7 @@
 # compiled in-tree by Zig's bundled Clang frontend. First `zig build` may fetch
 # the pinned toolchain index (network).
 FROM ubuntu:24.04
-ARG ZIG_VERSION=0.16.0
+ARG ZIG_VERSION=0.17.0
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y --no-install-recommends \

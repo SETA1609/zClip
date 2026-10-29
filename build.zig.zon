@@ -11,7 +11,7 @@
     .fingerprint = 0xf924c4083ac92525,
 
     // Minimum Zig version that can build this package.
-    .minimum_zig_version = "0.16.0",
+    .minimum_zig_version = "0.17.0",
 
     // No external Zig dependencies — the C/C++ translation units are
     // compiled in-tree via Zig's bundled Clang frontend.

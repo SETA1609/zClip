@@ -7,7 +7,7 @@ Sections:
 1. [Zig syntax that looks like C but isn't](#1-zig-syntax-that-looks-like-c-but-isnt)
 2. [Slices, arrays, and string literals](#2-slices-arrays-and-string-literals)
 3. [Error unions vs optionals](#3-error-unions-vs-optionals)
-4. [Zig 0.16 stdlib changes (Io, ArrayList, main)](#4-zig-016-stdlib-changes-io-arraylist-main)
+4. [Zig 0.16 and 0.17 changes (Io, ArrayList, main, build root)](#4-zig-016-and-017-changes-io-arraylist-main-build-root)
 5. [The FFI boundary: linking C and C++ from Zig](#5-the-ffi-boundary-linking-c-and-c-from-zig)
 6. [Stdio buffering across languages (output)](#6-stdio-buffering-across-languages-output)
 7. [Stdin across languages (input)](#7-stdin-across-languages-input)
@@ -94,7 +94,18 @@ Cheat:
 
 ---
 
-## 4. Zig 0.16 stdlib changes (Io, ArrayList, main)
+## 4. Zig 0.16 and 0.17 changes (Io, ArrayList, main, build root)
+
+### 0.16 → 0.17 (what this repo had to port)
+
+| 0.16 | 0.17 |
+|---|---|
+| `b.pathFromRoot("src/c")` | Removed. `b.root` is the package's build root (a `Cache.Path`): `b.root.joinString(b.allocator, "src/c")` |
+| `if (b.args) \|args\| run.addArgs(args);` | `run.addPassthruArgs();` |
+| `@typeInfo(E).@"enum".fields` (`field.name`, `field.value`) | `.field_names` and `.field_values`, parallel slices |
+| `@intFromEnum(e)` / `@enumFromInt(i)` | `@backingInt(e)` / `@fromBackingInt(i)`. `zig fmt` on 0.17 rewrites these for you |
+
+### ≤ 0.15 → 0.16
 
 If you have an older `build.zig` lying around, several things broke between 0.13 and 0.16. The big ones:
 

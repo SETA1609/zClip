@@ -5,27 +5,27 @@ const skeletal = zclip.skeletal;
 const testing = std.testing;
 
 test "PlayMode discriminants are stable" {
-    try testing.expectEqual(@intFromEnum(sprite.PlayMode.once), 0);
-    try testing.expectEqual(@intFromEnum(sprite.PlayMode.loop), 1);
-    try testing.expectEqual(@intFromEnum(sprite.PlayMode.ping_pong), 2);
+    try testing.expectEqual(@backingInt(sprite.PlayMode.once), 0);
+    try testing.expectEqual(@backingInt(sprite.PlayMode.loop), 1);
+    try testing.expectEqual(@backingInt(sprite.PlayMode.ping_pong), 2);
 }
 
 test "Interpolation discriminants are stable" {
-    try testing.expectEqual(@intFromEnum(skeletal.Interpolation.step), 0);
-    try testing.expectEqual(@intFromEnum(skeletal.Interpolation.linear), 1);
-    try testing.expectEqual(@intFromEnum(skeletal.Interpolation.cubic_spline), 2);
+    try testing.expectEqual(@backingInt(skeletal.Interpolation.step), 0);
+    try testing.expectEqual(@backingInt(skeletal.Interpolation.linear), 1);
+    try testing.expectEqual(@backingInt(skeletal.Interpolation.cubic_spline), 2);
 }
 
 test "ChannelTarget discriminants are stable" {
-    try testing.expectEqual(@intFromEnum(skeletal.ChannelTarget.translation), 0);
-    try testing.expectEqual(@intFromEnum(skeletal.ChannelTarget.rotation), 1);
-    try testing.expectEqual(@intFromEnum(skeletal.ChannelTarget.scale), 2);
-    try testing.expectEqual(@intFromEnum(skeletal.ChannelTarget.weights), 3);
+    try testing.expectEqual(@backingInt(skeletal.ChannelTarget.translation), 0);
+    try testing.expectEqual(@backingInt(skeletal.ChannelTarget.rotation), 1);
+    try testing.expectEqual(@backingInt(skeletal.ChannelTarget.scale), 2);
+    try testing.expectEqual(@backingInt(skeletal.ChannelTarget.weights), 3);
 }
 
 test "PathKind discriminants are stable" {
-    try testing.expectEqual(@intFromEnum(skeletal.PathKind.sprite), 0);
-    try testing.expectEqual(@intFromEnum(skeletal.PathKind.skeletal), 1);
+    try testing.expectEqual(@backingInt(skeletal.PathKind.sprite), 0);
+    try testing.expectEqual(@backingInt(skeletal.PathKind.skeletal), 1);
 }
 
 test "Rect layout" {

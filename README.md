@@ -68,6 +68,6 @@ The `build.zig` structure:
 ./scripts/ci.sh    # the full local CI gate (fmt + build + run + test)
 ```
 
-Requires **Zig 0.16+**. The cgltf C backend (once vendored) is compiled in-tree
+Requires **Zig 0.17.0**. The cgltf C backend (once vendored) is compiled in-tree
 by Zig's bundled Clang frontend — no external C toolchain needed. See
 [`CONTRIBUTING.md`](CONTRIBUTING.md) for the FFI rules and C style.

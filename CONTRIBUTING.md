@@ -50,7 +50,7 @@ the Zig side.
 
 ## Dev setup
 
-- **Zig 0.16+** (the build uses post-0.16 APIs).
+- **Zig 0.17.0** (the build uses 0.17 APIs: `addPassthruArgs`, `b.root`).
 - `zig build` — build the artifact; `zig build run` — build + run the demo;
   `zig build test` — analyze + link the `zclip` module.
 - **`./scripts/ci.sh`** runs the exact CI gate locally (fmt + build + run +

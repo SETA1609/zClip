@@ -82,7 +82,7 @@ fn containsSuffix(
 /// Two paths are needed because the build can run from a different cwd than
 /// this package: when zClip is consumed as a dependency, cwd is the parent's
 /// build root. So we *open* the directory via its absolute path (`scan_dir =
-/// b.pathFromRoot(rel_dir)`) but return *package-relative* paths, which is
+/// pathFromBuildRoot(b, rel_dir)`) but return *package-relative* paths, which is
 /// what `addCSourceFiles` resolves against its `root` (the package root).
 ///
 /// `io` is Zig's I/O interface (introduced in 0.16's "color-blind async"
@@ -92,6 +92,12 @@ fn containsSuffix(
 /// The returned slice and its strings are owned by `allocator`. In the
 /// build script we use `b.allocator`, which lives for the duration of the
 /// build, so we never explicitly free them.
+/// `sub_path` joined to this package's build root. Zig 0.17 removed
+/// `Build.pathFromRoot`; `b.root` is the directory that holds build.zig.
+fn pathFromBuildRoot(b: *std.Build, sub_path: []const u8) []const u8 {
+    return b.root.joinString(b.allocator, sub_path) catch @panic("OOM");
+}
+
 fn getFilesFromDir(
     io: std.Io,
     allocator: std.mem.Allocator,
@@ -147,15 +153,15 @@ pub fn build(b: *std.Build) void {
     const optimize = b.standardOptimizeOption(.{});
 
     // Backend selection — glTF data ingestion strategy.
-    const backend_opt = b.option([]const u8, "backend",
-        "glTF data backend: none (pure-Zig stubs), cgltf (vendored C loader, once implemented)") orelse "none";
+    const backend_opt = b.option([]const u8, "backend", "glTF data backend: none (pure-Zig stubs), cgltf (vendored C loader, once implemented)") orelse "none";
     const backend = parseBackend(backend_opt);
 
     // Build config options for source code to query.
     const build_config = b.addOptions();
-    inline for (@typeInfo(Backend).@"enum".fields) |field| {
-        const p: Backend = @enumFromInt(field.value);
-        build_config.addOption(bool, b.fmt("backend_{s}", .{field.name}), p == backend);
+    const backend_info = @typeInfo(Backend).@"enum";
+    inline for (backend_info.field_names, backend_info.field_values) |field_name, field_value| {
+        const p: Backend = @fromBackingInt(@intCast(field_value));
+        build_config.addOption(bool, b.fmt("backend_{s}", .{field_name}), p == backend);
     }
 
     // Discover C and C++ sources at build-script run time instead of
@@ -163,11 +169,11 @@ pub fn build(b: *std.Build) void {
     // (or any subdirectory of those) and it gets picked up automatically
     // on the next `zig build`. Failure to read the directory is fatal —
     // there is no useful recovery in a build script, so we panic.
-    // Open dirs by absolute path (`pathFromRoot`) so discovery works even when
+    // Open dirs by absolute path (`pathFromBuildRoot`) so discovery works even when
     // this package builds as a dependency (cwd is then the parent's build root).
-    const c_sources = getFilesFromDir(b.graph.io, b.allocator, b.pathFromRoot(path_to_c), path_to_c, &.{c_suffix}) catch |err|
+    const c_sources = getFilesFromDir(b.graph.io, b.allocator, pathFromBuildRoot(b, path_to_c), path_to_c, &.{c_suffix}) catch |err|
         std.debug.panic("Failed to scan {s}: {s}", .{ path_to_c, @errorName(err) });
-    const cpp_sources = getFilesFromDir(b.graph.io, b.allocator, b.pathFromRoot(path_to_cpp), path_to_cpp, &.{cpp_suffix}) catch |err|
+    const cpp_sources = getFilesFromDir(b.graph.io, b.allocator, pathFromBuildRoot(b, path_to_cpp), path_to_cpp, &.{cpp_suffix}) catch |err|
         std.debug.panic("Failed to scan {s}: {s}", .{ path_to_cpp, @errorName(err) });
 
     // Public Zig API. `addModule` registers it under the name "zclip" so
@@ -226,9 +232,7 @@ pub fn build(b: *std.Build) void {
 
     const run_cmd = b.addRunArtifact(exe);
     run_cmd.step.dependOn(b.getInstallStep());
-    if (b.args) |args| {
-        run_cmd.addArgs(args);
-    }
+    run_cmd.addPassthruArgs();
     const run_step = b.step("run", "Run the demo application");
     run_step.dependOn(&run_cmd.step);
 
