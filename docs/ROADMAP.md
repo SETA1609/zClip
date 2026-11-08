@@ -39,32 +39,29 @@ Because no asset-format type crosses the public boundary (glTF/cgltf stay behind
 `gltf.zig`), a consumer can swap a sprite clip for a skeletal one without
 touching call sites. See [`mission.md`](mission.md).
 
+## Releases
+
+How a release happens, so that open branches do not conflict on the bookkeeping files:
+
+- **Issue branches** (`issue-<n>-<slug>`) change code, tests, and docs, and add one changelog fragment, `changes/issue-<n>.md` (see [`changes/README.md`](../changes/README.md)). They do not edit this roadmap, `CHANGELOG.md`, the statuses in `issues.md`, or `.version` in `build.zig.zon`. Each fragment is a file of its own, so two open branches never edit the same line.
+- **Bookkeeping branches** make those edits, one at a time: `release-vX.Y.Z` when a milestone's issues have merged, or `bookkeeping-<yyyy-mm-dd>` for planning between releases (new issues, re-scoped milestones). A release branch moves the fragments into a `## vX.Y.Z (yyyy-mm-dd)` section of `CHANGELOG.md` with `devops-tools changelog-fragments --settings-file devops-tools.toml release --section-title "vX.Y.Z (yyyy-mm-dd)"` ([devops_tools](https://github.com/SETA1609/devops_tools)), marks the milestone released below, sets the issues it closes to `done`, and sets `.version`.
+- **One minor release per milestone.** After the release branch merges, the maintainer tags its merge commit `vX.Y.0` on `main` and pushes the tag. A patch release `vX.Y.Z` only carries fixes for a released minor. Tags are never moved or deleted.
+- **Consumers** pin a tagged commit (commit and content hash) and name the tag in a comment.
+- Milestones marked "shipped, untagged" came before the first tag; pin a tagged release instead.
+
 ## Version milestones
 
-**Status:** `stable` = shipped & API-complete on `main` · `dev` = currently in
-development · `planned` = not yet started. *(No git tags are cut yet — formal
-tagging is part of the 1.0 hardening pass.)* The **Steps to cut this version**
-column is the concrete, ordered work that earns the tag — ☑ a shipped patch, ☐
-still open; shipped versions list the patches that got them there. House rule for
-every box: a gated TDD session (red→green), one atomic commit per group, and the
-CI gate (`fmt` + build + run + test) stays green. Fuller TDD detail:
-[`completion-plan.md`](completion-plan.md).
+**Status:** `released vX.Y.Z` = tagged on `main` · `shipped, untagged` = on `main` before tagging began · `next` = the milestone being worked on · `planned` = not started. The **Steps** column lists the work in each milestone (☑ done, ☐ open); only a bookkeeping branch changes it. House rule for every step: a gated test-driven session (failing tests first, then the code), one atomic commit per group, and the continuous-integration gate (`fmt` + build + run + test) stays green. **v1.0.0 = both paths implemented and frozen.** Fuller detail: [`completion-plan.md`](completion-plan.md).
 
-**Patch convention:** each ☐ task is one **patch** release. Working a minor line
-`v0.x`, the first task done tags `v0.x.1`, the second `v0.x.2`, and so on (one
-atomic commit → one patch bump) — the `.N` prefix on each step is the patch it
-produces. The minor line is **complete** when its last ☐ lands; the next
-milestone opens the next minor. **v1.0.0 = both paths implemented + frozen.**
-
-| Version | Features | Steps to cut this version | Status |
+| Version | Features | Steps | Status |
 | --- | --- | --- | --- |
-| **v0.1.0** | Foundation — repository + package manifest. | ☑ **.1** repo scaffold + MIT license + `.clang-format`. ☑ **.2** `build.zig.zon` package manifest. | stable |
-| **v0.2.0** | Foundation — the libs-first build shell. | ☑ **.1** `build.zig`: expose the `zclip` **module** + the static-lib **artifact**. ☑ **.2** framework wiring — `zgame.zclip` raw re-export + the `zgame.animation` abstraction module. | stable |
-| **v0.3.0** | Foundation — the public data types. | ☑ **.1** enums — `PlayMode` / `Interpolation` / `ChannelTarget` / `PathKind`. ☑ **.2** sprite types (`Rect`/`Frame`/`Atlas`/`Clip`) + skeletal types (`Joint`/`Skeleton`/`Clip`/`JointPalette`) declared. ☑ **.3** enum value maps ([`enum-values.md`](enum-values.md)). | stable |
-| **v0.4.0** | Foundation — the declared API surface. | ☑ **.1** the full documented public API surface, panic-on-call (sprite + skeletal + gltf all declared so consumers can compile against it). | stable |
-| **v0.5.0** | Foundation — the test & CI scaffold. | ☑ **.1** gated red→green TDD suite + harness (`src/tests/tdd/`). ☑ **.2** contract test (enum values / struct defaults / layout). ☑ **.3** CI gate — `fmt` + build + run + test on PRs to main. | stable |
-| **v0.6.0** | **Sprite-atlas path live** (pure Zig, no deps): build atlases and play sprite clips on a phase. | ☑ **.1** `Atlas.grid` + explicit-rect atlases. ☑ **.2** `Clip.duration` + `Clip.frameAt(phase)`. ☑ **.3** `Atlas.parse` — JSON deserialisation for external atlas metadata. | stable |
-| **v0.7.0** | **cgltf ingestion**: vendor the parser and load glTF into owned Zig structs. | ☐ **.1** vendor cgltf (`cgltf.h` + `src/c/cgltf.c` impl TU; build auto-discovers it). ☐ **.2** `gltf.zig` binding — `loadFile`/`loadMemory`/`free` → owned `Document`. ☐ **.3** surface skins / joints / animation samplers. | planned |
+| **v0.1.0** | Foundation — repository + package manifest. | ☑ **.1** repo scaffold + MIT license + `.clang-format`. ☑ **.2** `build.zig.zon` package manifest. | shipped, untagged |
+| **v0.2.0** | Foundation — the libs-first build shell. | ☑ **.1** `build.zig`: expose the `zclip` **module** + the static-lib **artifact**. ☑ **.2** framework wiring — `zgame.zclip` raw re-export + the `zgame.animation` abstraction module. | shipped, untagged |
+| **v0.3.0** | Foundation — the public data types. | ☑ **.1** enums — `PlayMode` / `Interpolation` / `ChannelTarget` / `PathKind`. ☑ **.2** sprite types (`Rect`/`Frame`/`Atlas`/`Clip`) + skeletal types (`Joint`/`Skeleton`/`Clip`/`JointPalette`) declared. ☑ **.3** enum value maps ([`enum-values.md`](enum-values.md)). | shipped, untagged |
+| **v0.4.0** | Foundation — the declared API surface. | ☑ **.1** the full documented public API surface, panic-on-call (sprite + skeletal + gltf all declared so consumers can compile against it). | shipped, untagged |
+| **v0.5.0** | Foundation — the test & CI scaffold. | ☑ **.1** gated red→green TDD suite + harness (`src/tests/tdd/`). ☑ **.2** contract test (enum values / struct defaults / layout). ☑ **.3** CI gate — `fmt` + build + run + test on PRs to main. | shipped, untagged |
+| **v0.6.0** | **Sprite-atlas path live** (pure Zig, no deps): build atlases and play sprite clips on a phase. | ☑ **.1** `Atlas.grid` + explicit-rect atlases. ☑ **.2** `Clip.duration` + `Clip.frameAt(phase)`. ☑ **.3** `Atlas.parse` — JSON deserialisation for external atlas metadata. | **first tag: `v0.6.0`**, cut on the merge of `release-v0.6.0` (also holds the Zig 0.17.0 port and the container command-line tool) |
+| **v0.7.0** | **cgltf ingestion**: vendor the parser and load glTF into owned Zig structs. | ☐ **.1** vendor cgltf (`cgltf.h` + `src/c/cgltf.c` impl TU; build auto-discovers it). ☐ **.2** `gltf.zig` binding — `loadFile`/`loadMemory`/`free` → owned `Document`. ☐ **.3** surface skins / joints / animation samplers. | next |
 | **v0.8.0** | **Skeletal path live**: a skeleton + sampled channels become a joint palette. | ☐ **.1** `Skeleton` + `Joint` built from glTF (inverse-bind matrices, parent indices). ☐ **.2** channel sampling (`step`/`linear`/`cubic_spline`) → `JointPalette` via `sample()`. | planned |
 | **v0.9.0** | **Framework Animator** unifying both paths (lands in [`../../../shared/animation.zig`](../../../shared/animation.zig)). | ☐ **.1** `PlayMode` + `Cursor` (advance / phase / reset). ☐ **.2** `Animator.current()` over a `sprite.Clip` **or** `skeletal.Clip` from one call site. | planned |
 | **v1.0.0** | **Both paths implemented & frozen** — validated on the example apps; API frozen. | ☐ **.1** every app in [`validation-apps.md`](validation-apps.md) green. ☐ **.2** pin the vendored cgltf to a released version. ☐ **.3** **freeze the API** → tag **v1.0.0**. | planned |
