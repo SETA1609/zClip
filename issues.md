@@ -67,3 +67,16 @@ Status: todo
 - Rename the short names in `src/sprite.zig` and `build.zig` (`p`, `accum`, `n`, `cols`, `frame_w`, `b`, `opt`) to spelled-out ones before the public API is frozen.
 
 Done when: `-Dbackend=none` builds with no C sources and no libc, an invalid value is reported by the option parser, and `scripts/ci.sh` passes.
+
+---
+
+## Issue 7 — Turn on the dev to main branch rules
+
+Status: todo
+Needs: —
+
+`dev` is meant for first testing and `main` for releases, but issue branches currently merge straight into `main`. `dev` has `.github/workflows/branch-rules.yml`, and that version puts `github.head_ref` and `github.base_ref` directly into a shell script, so a crafted branch name can run commands in CI. Fix that first: pass both through `env` and move the check to `scripts/ci/check_branch_source.py`, as the platform adapter does.
+
+The rest waits for a decision to gate `main` behind `dev`, because merging the check into `main` fails every pull request into `main` that does not come from `dev`. At that point, add `.github/workflows/rebase-branches.yml` and `scripts/ci/rebase-branches.sh`, matching `issue-<n>-<slug>` branches, retarget issue branches at `dev`, and update `CONTRIBUTING.md`.
+
+Done when: `branch-rules.yml` expands no branch name inside a `run` block; once the flow starts, a pull request from an issue branch into `main` fails the check and one from `dev` passes.
